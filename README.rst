@@ -16,11 +16,16 @@ is to be a drop-in replacement for MySQLdb and work on CPython, PyPy and IronPyt
 Tips
 -------------
 如源码：
+.. code:: python
+
 self.rowcount = sum(self.execute(query, arg) for arg in args)
+
 executemany是对execute的包装，并非multiple rows，因此在做insert操作的时候，数据量稍大些，性能就变得很差。之前一直没发现这个问题，以为executemany就是批量入库，从而浪费了不少时间与资源。
 而如果利用execute并发挥MySQL的multiple rows作用，同样12万条数据入库，能从近6000秒提升至20秒。
 
 优化前：
+.. code:: python
+
 sql = "INSERT INTO mtable(field1, field2, field3...) VALUES (%s, %s, %s...)"
 for item in datas:
   batch_list.append([v1, v2, v3...])
@@ -33,6 +38,8 @@ for item in datas:
       common.print_log("inserted:" + str(counts))
 
 优化后：
+.. code:: python
+
 sql = "INSERT INTO mtable(field1, field2, field3...) VALUES (%s, %s, %s...)"
 for item in datas:
   batch_list.append(common.multipleRows([v1, v2, v3...]))
@@ -44,6 +51,8 @@ for item in datas:
       batch_list = []
       counts += len(batch_list)
       common.print_log("inserted:" + str(counts))
+      
+.. code:: python
 
 # 返回可用于multiple rows的sql拼装值
 def multipleRows(params):
