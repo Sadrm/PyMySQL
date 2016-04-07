@@ -13,6 +13,50 @@ PyMySQL
 This package contains a pure-Python MySQL client library. The goal of PyMySQL
 is to be a drop-in replacement for MySQLdb and work on CPython, PyPy and IronPython.
 
+Tips
+-------------
+如源码：
+self.rowcount = sum(self.execute(query, arg) for arg in args)
+executemany是对execute的包装，并非multiple rows，因此在做insert操作的时候，数据量稍大些，性能就变得很差。之前一直没发现这个问题，以为executemany就是批量入库，从而浪费了不少时间与资源。
+而如果利用execute并发挥MySQL的multiple rows作用，同样12万条数据入库，能从近6000秒提升至20秒。
+
+优化前：
+sql = "INSERT INTO mtable(field1, field2, field3...) VALUES (%s, %s, %s...)"
+for item in datas:
+  batch_list.append([v1, v2, v3...])
+  # 批量插入
+  if len(batch_list) == common.mysql_batch_num:
+      cur.executemany(sql, batch_list)
+      conn.commit()
+      batch_list = []
+      counts += len(batch_list)
+      common.print_log("inserted:" + str(counts))
+
+优化后：
+sql = "INSERT INTO mtable(field1, field2, field3...) VALUES (%s, %s, %s...)"
+for item in datas:
+  batch_list.append(common.multipleRows([v1, v2, v3...]))
+  # 批量插入
+  if len(batch_list) == common.mysql_batch_num:
+      sql = "INSERT INTO mtable(field1, field2, field3...) VALUES %s " % ','.join(batch_list)
+      cur.execute(sql)
+      conn.commit()
+      batch_list = []
+      counts += len(batch_list)
+      common.print_log("inserted:" + str(counts))
+
+# 返回可用于multiple rows的sql拼装值
+def multipleRows(params):
+    ret = []
+    # 根据不同值类型分别进行sql语法拼装
+    for param in params:
+        if isinstance(param, (int, long, float, bool)):
+            ret.append(str(param))
+        elif isinstance(param, (str, unicode)):
+            ret.append('"' + param + '"')
+        else:
+            print_log('unsupport value: %s ' % param)
+    return '(' + ','.join(ret) + ')'
 
 Requirements
 -------------
